@@ -1,0 +1,25 @@
+simulation:
+  n_leads: 10000
+  n_banks: 36        # sum of counts in bank_archetypes.yaml
+  seed: 42
+  date_range:
+    start: "2024-01-01"
+    end:   "2024-12-31"
+
+output:
+  raw_dir:       "data/raw"
+  processed_dir: "data/processed"
+  artifacts_dir: "data/artifacts"
+
+validation:
+  # Causal correlation thresholds
+  min_cibil_income_corr:   0.30   # CIBIL must correlate positively with income
+  max_cibil_dpd30_corr:   -0.25  # DPD30 must correlate negatively with CIBIL
+  # FOIR bounds
+  foir_min: 0.05
+  foir_max: 0.95
+  # Age bounds
+  age_min:  23
+  age_max:  62
+  # Age at loan maturity cap
+  max_age_at_maturity: 79
