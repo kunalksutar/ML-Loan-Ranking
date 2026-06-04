@@ -1,0 +1,289 @@
+# Bank Archetype Definitions
+# Each top-level key is a bank_type. Scalar values are fixed for all banks of that
+# type; [lo, hi] pairs are sampled uniformly within the range per individual bank.
+#
+# Total bank count: 8 + 10 + 8 + 6 + 4 = 36 (matches data_config.yaml n_banks)
+
+PSB:
+  count: 8
+  risk_appetite: conservative
+  documentation_strictness: high
+  digital_only: false
+
+  # Eligibility thresholds
+  min_cibil_score: [700, 725]
+  max_cibil_score: 900
+  min_annual_income: [200000, 350000]
+  max_annual_income: 100000000          # effectively unlimited (100 Cr)
+  max_foir: [0.55, 0.65]
+  max_dti_ratio: [0.70, 0.82]
+  min_age: [21, 23]
+  max_age_at_maturity: [65, 68]
+  max_enquiries_6m: [2, 3]
+  max_dpd_30_count: [0, 1]
+  max_dpd_90_count: 0
+  max_written_off_loans: 0
+  max_settled_loans: [0, 1]
+  min_employer_tenure_months: [12, 24]
+  min_work_experience_years: [2.0, 3.0]
+
+  # Accepted income and employer types
+  accepted_income_types: [salaried, business]
+  accepted_employer_categories: [PSU, private_listed, private_unlisted, MNC, govt]
+  premium_employer_categories: [PSU, govt]   # get approval score bonus
+
+  # Loan products
+  loan_types_offered: [personal, home, car, education, business, gold, lap]
+
+  # Loan amount range (INR)
+  min_loan_amount: 50000
+  max_loan_amount: [2000000, 10000000]      # 20L to 1Cr
+  min_tenure_months: 12
+  max_tenure_months: 300                    # 25 years
+
+  # Interest rates (APR %)
+  interest_rate_min: [8.0, 9.5]
+  interest_rate_max: [12.0, 14.0]
+  processing_fee_pct: [0.5, 1.0]
+
+  # Geographic coverage
+  states_coverage_fraction: [0.80, 1.0]    # fraction of all states covered
+  city_tiers_served: [1, 2, 3]
+
+  # Simulation parameters
+  approval_base_rate: [0.28, 0.42]
+  disbursal_success_rate: [0.82, 0.92]
+  disbursal_speed_days: [10, 25]
+
+  # Approval model weights (per bank, sampled within range)
+  cibil_weight: [1.2, 2.0]
+  dti_weight: [0.8, 1.2]
+  amount_fit_weight: [0.3, 0.7]
+
+  # Sweet spot: preferred CIBIL band (offsets above min_cibil_score)
+  preferred_cibil_offset: [30, 60]          # preferred_cibil_min = min_cibil + offset
+  preferred_cibil_width: [50, 80]           # preferred_cibil_max = min + offset + width
+
+  # Preferred loan size (INR)
+  preferred_loan_size_min: [200000, 500000]
+  preferred_loan_size_max: [1000000, 5000000]
+
+
+private:
+  count: 10
+  risk_appetite: moderate
+  documentation_strictness: medium
+  digital_only: false
+
+  min_cibil_score: [680, 715]
+  max_cibil_score: 900
+  min_annual_income: [180000, 320000]
+  max_annual_income: 100000000
+  max_foir: [0.60, 0.70]
+  max_dti_ratio: [0.75, 0.88]
+  min_age: [21, 23]
+  max_age_at_maturity: [65, 70]
+  max_enquiries_6m: [3, 5]
+  max_dpd_30_count: [0, 2]
+  max_dpd_90_count: [0, 1]
+  max_written_off_loans: 0
+  max_settled_loans: [0, 1]
+  min_employer_tenure_months: [6, 12]
+  min_work_experience_years: [1.0, 2.0]
+
+  accepted_income_types: [salaried, self_employed, business]
+  accepted_employer_categories: [PSU, private_listed, private_unlisted, MNC, govt]
+  premium_employer_categories: [MNC, private_listed, PSU]
+
+  loan_types_offered: [personal, home, car, education, business, gold, lap]
+
+  min_loan_amount: 50000
+  max_loan_amount: [3000000, 20000000]      # 30L to 2Cr
+  min_tenure_months: 12
+  max_tenure_months: 360                    # 30 years
+
+  interest_rate_min: [9.0, 10.5]
+  interest_rate_max: [14.0, 16.0]
+  processing_fee_pct: [0.5, 1.5]
+
+  states_coverage_fraction: [0.65, 0.90]
+  city_tiers_served: [1, 2]
+
+  approval_base_rate: [0.25, 0.40]
+  disbursal_success_rate: [0.85, 0.93]
+  disbursal_speed_days: [5, 15]
+
+  cibil_weight: [1.0, 1.5]
+  dti_weight: [0.8, 1.2]
+  amount_fit_weight: [0.4, 1.0]
+
+  preferred_cibil_offset: [25, 55]
+  preferred_cibil_width: [50, 90]
+
+  preferred_loan_size_min: [150000, 500000]
+  preferred_loan_size_max: [1500000, 8000000]
+
+
+NBFC:
+  count: 8
+  risk_appetite: aggressive
+  documentation_strictness: low
+  digital_only: false
+
+  min_cibil_score: [620, 680]
+  max_cibil_score: 900
+  min_annual_income: [120000, 200000]
+  max_annual_income: 100000000
+  max_foir: [0.65, 0.78]
+  max_dti_ratio: [0.80, 0.92]
+  min_age: [21, 25]
+  max_age_at_maturity: [60, 68]
+  max_enquiries_6m: [4, 6]
+  max_dpd_30_count: [1, 3]
+  max_dpd_90_count: [0, 1]
+  max_written_off_loans: [0, 1]
+  max_settled_loans: [1, 2]
+  min_employer_tenure_months: [3, 6]
+  min_work_experience_years: [0.5, 1.0]
+
+  accepted_income_types: [salaried, self_employed, business, freelance]
+  accepted_employer_categories: [PSU, private_listed, private_unlisted, MNC, govt]
+  premium_employer_categories: [private_listed, MNC]
+
+  loan_types_offered: [personal, business, gold, lap, car]
+
+  min_loan_amount: 10000
+  max_loan_amount: [500000, 5000000]        # 5L to 50L
+  min_tenure_months: 3
+  max_tenure_months: 60
+
+  interest_rate_min: [12.0, 16.0]
+  interest_rate_max: [20.0, 26.0]
+  processing_fee_pct: [1.0, 2.5]
+
+  states_coverage_fraction: [0.50, 0.80]
+  city_tiers_served: [1, 2, 3]
+
+  approval_base_rate: [0.38, 0.58]
+  disbursal_success_rate: [0.75, 0.88]
+  disbursal_speed_days: [3, 8]
+
+  cibil_weight: [0.7, 1.2]
+  dti_weight: [0.6, 1.0]
+  amount_fit_weight: [0.5, 1.2]
+
+  preferred_cibil_offset: [20, 50]
+  preferred_cibil_width: [40, 70]
+
+  preferred_loan_size_min: [20000, 100000]
+  preferred_loan_size_max: [200000, 1500000]
+
+
+fintech:
+  count: 6
+  risk_appetite: aggressive
+  documentation_strictness: low
+  digital_only: true
+
+  min_cibil_score: [580, 650]
+  max_cibil_score: [800, 900]              # some fintechs cap at 800 (their model breaks above)
+  min_annual_income: [100000, 180000]
+  max_annual_income: 100000000
+  max_foir: [0.70, 0.85]
+  max_dti_ratio: [0.85, 0.95]
+  min_age: [21, 23]
+  max_age_at_maturity: [60, 65]
+  max_enquiries_6m: [5, 8]
+  max_dpd_30_count: [2, 4]
+  max_dpd_90_count: [0, 2]
+  max_written_off_loans: [0, 1]
+  max_settled_loans: [1, 3]
+  min_employer_tenure_months: [3, 6]
+  min_work_experience_years: [0.5, 1.0]
+
+  accepted_income_types: [salaried, self_employed, freelance]
+  accepted_employer_categories: [PSU, private_listed, private_unlisted, MNC, govt]
+  premium_employer_categories: [MNC, private_listed]
+
+  loan_types_offered: [personal, business]
+
+  min_loan_amount: 5000
+  max_loan_amount: [200000, 1000000]        # 2L to 10L
+  min_tenure_months: 3
+  max_tenure_months: 36
+
+  interest_rate_min: [16.0, 22.0]
+  interest_rate_max: [28.0, 36.0]
+  processing_fee_pct: [1.5, 3.0]
+
+  states_coverage_fraction: [0.60, 0.90]
+  city_tiers_served: [1, 2]
+
+  approval_base_rate: [0.48, 0.70]
+  disbursal_success_rate: [0.80, 0.92]
+  disbursal_speed_days: [1, 4]
+
+  cibil_weight: [0.5, 0.9]
+  dti_weight: [0.5, 0.8]
+  amount_fit_weight: [0.3, 0.7]
+
+  preferred_cibil_offset: [20, 40]
+  preferred_cibil_width: [40, 80]
+
+  preferred_loan_size_min: [10000, 50000]
+  preferred_loan_size_max: [100000, 500000]
+
+
+HFC:
+  count: 4
+  risk_appetite: moderate
+  documentation_strictness: high
+  digital_only: false
+
+  min_cibil_score: [680, 720]
+  max_cibil_score: 900
+  min_annual_income: [250000, 400000]
+  max_annual_income: 100000000
+  max_foir: [0.55, 0.65]
+  max_dti_ratio: [0.70, 0.80]
+  min_age: [21, 25]
+  max_age_at_maturity: [65, 75]            # housing loans extend past retirement
+  max_enquiries_6m: [2, 4]
+  max_dpd_30_count: [0, 1]
+  max_dpd_90_count: 0
+  max_written_off_loans: 0
+  max_settled_loans: [0, 1]
+  min_employer_tenure_months: [12, 24]
+  min_work_experience_years: [2.0, 3.0]
+
+  accepted_income_types: [salaried, self_employed, business]
+  accepted_employer_categories: [PSU, private_listed, private_unlisted, MNC, govt]
+  premium_employer_categories: [PSU, govt, MNC]
+
+  loan_types_offered: [home, lap]           # housing-only
+
+  min_loan_amount: 500000                   # 5L minimum (property-backed)
+  max_loan_amount: [10000000, 30000000]     # 1Cr to 3Cr
+  min_tenure_months: 12
+  max_tenure_months: 360                    # 30 years
+
+  interest_rate_min: [8.5, 9.5]
+  interest_rate_max: [10.0, 11.5]
+  processing_fee_pct: [0.5, 1.0]
+
+  states_coverage_fraction: [0.50, 0.75]
+  city_tiers_served: [1, 2, 3]
+
+  approval_base_rate: [0.25, 0.38]
+  disbursal_success_rate: [0.78, 0.90]
+  disbursal_speed_days: [15, 45]
+
+  cibil_weight: [1.0, 1.5]
+  dti_weight: [0.8, 1.2]
+  amount_fit_weight: [0.5, 1.0]
+
+  preferred_cibil_offset: [25, 50]
+  preferred_cibil_width: [50, 80]
+
+  preferred_loan_size_min: [1000000, 3000000]
+  preferred_loan_size_max: [5000000, 15000000]
