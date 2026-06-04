@@ -81,3 +81,45 @@
 | **HFC** | Intercept range | [−1.392, −0.790] | — | — |
 | **Tests** | Unit tests passed | 59 / 59 | 59 / 59 | ✓ |
 | **Tests** | Combined suite (leads + banks) | 98 / 98 | 98 / 98 | ✓ |
+
+---
+
+## Application Generation (Section 4.3) — `data/processed/applications_raw.parquet`
+
+| Category | Metric | Actual | Threshold / Target | Pass |
+|---|---|---|---|---|
+| **Schema** | Total pairs (10K leads × 36 banks) | 360,000 | 360,000 | ✓ |
+| **Schema** | Columns | 16 | 16 | ✓ |
+| **Schema** | Unique application IDs | 360,000 | 360,000 | ✓ |
+| **Schema** | Unique lead IDs covered | 10,000 | 10,000 | ✓ |
+| **Schema** | Unique bank IDs covered | 36 | 36 | ✓ |
+| **Schema** | Nullable fields (by design) | 2,037,807 | Expected | ✓ |
+| **Acceptance** | Overall conversion rate | 10.60 % | [10 %, 22 %] | ✓ |
+| **Acceptance** | Per-bank conversion rate std | 0.0508 | > 0.05 | ✓ |
+| **Acceptance** | Per-bank conversion rate range | [1.6 %, 23.4 %] | — | — |
+| **Acceptance** | Leakage (converted=1 where ineligible) | 0 | 0 | ✓ |
+| **Eligibility** | Eligibility pass rate | 13.25 % | — | — |
+| **Eligibility** | Top rejection: `cibil_below_minimum` | 39.5 % of pairs | — | — |
+| **Eligibility** | 2nd rejection: `state_not_covered` | 23.3 % of pairs | — | — |
+| **Eligibility** | 3rd rejection: `income_type_not_accepted` | 11.3 % of pairs | — | — |
+| **Eligibility** | 4th rejection: `loan_type_not_offered` | 6.7 % of pairs | — | — |
+| **Application Status** | `not_submitted` (ineligible) | 86.75 % | — | — |
+| **Application Status** | `disbursed` (converted=1) | 10.60 % | — | — |
+| **Application Status** | `rejected` (eligible, not approved) | 1.58 % | — | — |
+| **Application Status** | `disbursal_failed` | 1.07 % | — | — |
+| **Bank Type Conversion** | NBFC | 16.23 % | Highest (aggressive) | ✓ |
+| **Bank Type Conversion** | Private | 12.37 % | — | — |
+| **Bank Type Conversion** | PSB | 8.45 % | — | — |
+| **Bank Type Conversion** | Fintech | 8.69 % | — | — |
+| **Bank Type Conversion** | HFC | 2.07 % | Lowest (home/lap only) | ✓ |
+| **Correlations** | `corr(cibil_score, annual_income)` | 0.491 | > 0.30 | ✓ |
+| **Correlations** | `corr(cibil_score, dpd_30_count)` | −0.401 | < −0.20 | ✓ |
+| **Correlations** | `corr(foir_headroom, converted)` | 0.064 | > 0.05 | ✓ |
+| **Correlations** | `corr(bureau_fatigue_flag, converted)` | −0.042 | < −0.02 | ✓ |
+| **Correlations** | `corr(cibil_gap, converted)` | 0.320 | > 0 (positive) | ✓ |
+| **Bureau Pulls** | Total pull records | 47,695 | = eligible pairs | ✓ |
+| **Bureau Pulls** | Hard enquiry share | 85.2 % | ~85 % | ✓ |
+| **Bureau Pulls** | Soft enquiry share | 14.8 % | ~15 % | ✓ |
+| **Tests** | Unit tests (approval + application) | 46 / 46 | 46 / 46 | ✓ |
+| **Tests** | Integration test (full pipeline) | 25 / 25 | 25 / 25 | ✓ |
+| **Tests** | Combined suite (all phases) | 169 / 169 | 169 / 169 | ✓ |
