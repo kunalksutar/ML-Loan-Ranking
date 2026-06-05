@@ -1,0 +1,115 @@
+# Feature configuration for the Lead-to-Bank Ranking system
+# Controls feature engineering encodings and preprocessing pipeline transforms (Section 8)
+
+# ---- Log-transform then StandardScale (right-skewed distributions) ----
+log_transform_then_scale:
+  - annual_income
+  - loan_amount_requested
+  - savings_balance
+  - credit_card_spend_monthly
+
+# ---- StandardScale only (continuous, approximately symmetric) ----
+standard_scale:
+  - age
+  - cibil_score
+  - foir
+  - dti_ratio
+  - loan_to_income_ratio
+  - enquiry_count_6m
+  - dpd_30_count
+  - dpd_90_count
+  - written_off_loans
+  - settled_loans
+  - existing_loan_count
+  - work_experience_years
+  - current_employer_tenure_yrs
+  - loan_tenure_months
+  - credit_utilization
+  - age_at_maturity
+  - min_cibil_score
+  - max_foir
+  - min_annual_income
+  - approval_base_rate
+  - disbursal_speed_days
+  - interest_rate_min
+  - interest_rate_max
+  - max_enquiries_6m
+  - max_loan_amount
+  - min_loan_amount
+  - cibil_gap
+  - foir_headroom
+  - income_headroom
+  - income_headroom_ratio
+  - amount_position
+  - bureau_fatigue_excess
+  - cibil_vs_sweet_spot_dist
+  - age_maturity_headroom
+  - days_since_first_application
+  - enquiry_velocity_weekly
+  - application_sequence_num
+
+# ---- Ordinal (already integer codes — passthrough in sklearn ColumnTransformer) ----
+ordinal_features:
+  - risk_appetite_enc       # conservative=0, moderate=1, aggressive=2
+  - documentation_strictness_enc  # low=0, medium=1, high=2
+  - city_tier               # 1=metro, 2=mid-tier, 3=rural
+
+# ---- Label-encoded categoricals (integer codes) ----
+label_encoded_features:
+  - income_type_enc
+  - employer_category_enc
+  - loan_type_enc
+  - gender_enc
+  - bank_type_enc
+
+# ---- Binary / boolean — passthrough (no scaling needed) ----
+passthrough_features:
+  - amount_fit_flag
+  - income_type_match
+  - loan_type_match
+  - geography_match
+  - bureau_fatigue_flag
+  - cibil_in_sweet_spot
+  - dpd90_exceeds_bank_max
+  - is_reapplication
+
+# ---- Encoding maps used during feature engineering ----
+label_encoding_maps:
+  income_type:
+    salaried: 0
+    self_employed: 1
+    business: 2
+    freelance: 3
+  employer_category:
+    PSU: 0
+    private_listed: 1
+    private_unlisted: 2
+    MNC: 3
+    govt: 4
+  loan_type:
+    personal: 0
+    home: 1
+    car: 2
+    education: 3
+    business: 4
+    gold: 5
+    lap: 6
+  gender:
+    M: 0
+    F: 1
+    Other: 2
+  bank_type:
+    PSB: 0
+    private: 1
+    NBFC: 2
+    fintech: 3
+    HFC: 4
+    cooperative: 5
+  risk_appetite:
+    conservative: 0
+    moderate: 1
+    aggressive: 2
+  documentation_strictness:
+    low: 0
+    medium: 1
+    high: 2
