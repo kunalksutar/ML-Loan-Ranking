@@ -1,3 +1,5 @@
+[![CI](https://github.com/kunalksutar/ML-Loan-Ranking/actions/workflows/ci.yml/badge.svg)](https://github.com/kunalksutar/ML-Loan-Ranking/actions/workflows/ci.yml)
+
 ## Lead Generation (Section 4.1) — `data/raw/leads.parquet`
 
 | Category | Metric | Actual | Threshold / Target | Pass |
