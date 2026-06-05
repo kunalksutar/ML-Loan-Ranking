@@ -86,6 +86,46 @@
 
 ---
 
+## Feature Engineering (Section 5) — `data/processed/applications_features.parquet`
+
+| Category | Metric | Actual | Threshold / Target | Pass |
+|---|---|---|---|---|
+| **Schema** | Total rows (10K leads × 36 banks) | 360,000 | 360,000 | ✓ |
+| **Schema** | Total ML features | 57 | 57 | ✓ |
+| **Schema** | Null feature cells | 0 | 0 | ✓ |
+| **Feature Groups** | Lead features | 25 | 25 | ✓ |
+| **Feature Groups** | Bank features | 13 | 13 | ✓ |
+| **Feature Groups** | Interaction features | 15 | 15 | ✓ |
+| **Feature Groups** | Temporal features | 4 | 4 | ✓ |
+| **Leakage Prevention** | Forbidden features in output | 0 | 0 | ✓ |
+| **Leakage Prevention** | `converted=1` where ineligible | 0 | 0 | ✓ |
+| **Leakage Prevention** | Max `\|corr(feature, converted)\|` | 0.321 | < 0.95 | ✓ |
+| **Encodings** | `income_type_enc` unknown values | 0 | 0 | ✓ |
+| **Encodings** | `bank_type_enc` unknown values | 0 | 0 | ✓ |
+| **Encodings** | `risk_appetite_enc` range | [0, 2] | {0,1,2} | ✓ |
+| **Encodings** | `documentation_strictness_enc` range | [0, 2] | {0,1,2} | ✓ |
+| **Interaction** | `amount_position` clipped to [0, 1] | True | [0, 1] | ✓ |
+| **Interaction** | `bureau_fatigue_excess` non-negative | True | ≥ 0 | ✓ |
+| **Interaction** | `geography_match` binary | True | {0, 1} | ✓ |
+| **Correlations** | `corr(cibil_gap, converted)` | +0.320 | positive | ✓ |
+| **Correlations** | `corr(foir_headroom, converted)` | +0.064 | positive | ✓ |
+| **Correlations** | `corr(bureau_fatigue_flag, converted)` | −0.042 | negative | ✓ |
+| **Correlations** | `corr(income_type_match, converted)` | +0.061 | positive | ✓ |
+| **Correlations** | `corr(cibil_score, converted)` | +0.110 | positive | ✓ |
+| **Top Interaction** | #1 by `\|corr\|` | `cibil_vs_sweet_spot_dist` (0.321) | — | — |
+| **Top Interaction** | #2 by `\|corr\|` | `cibil_gap` (0.320) | — | — |
+| **Top Interaction** | #3 by `\|corr\|` | `cibil_in_sweet_spot` (0.235) | — | — |
+| **Splits** | Train rows (70 % of leads) | 252,000 | ~70 % | ✓ |
+| **Splits** | Val rows (15 % of leads) | 54,000 | ~15 % | ✓ |
+| **Splits** | Test rows (15 % of leads) | 54,000 | ~15 % | ✓ |
+| **Splits** | Lead-level no-overlap guarantee | True | True | ✓ |
+| **Artifacts** | `feature_schema.json` generated | True | True | ✓ |
+| **Tests** | Unit tests (interaction features) | 51 / 51 | 51 / 51 | ✓ |
+| **Tests** | Integration tests (feature pipeline) | 40 / 40 | 40 / 40 | ✓ |
+| **Tests** | Combined suite (all phases) | 260 / 260 | 260 / 260 | ✓ |
+
+---
+
 ## Application Generation (Section 4.3) — `data/processed/applications_raw.parquet`
 
 | Category | Metric | Actual | Threshold / Target | Pass |
