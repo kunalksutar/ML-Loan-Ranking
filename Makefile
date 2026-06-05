@@ -1,13 +1,13 @@
-PYTHON = .venv/Scripts/python
-PIP    = .venv/Scripts/pip
+PYTHON := python
+PIP := python -m pip
 
-.PHONY: setup venv install generate-leads validate test clean
+.PHONY: setup venv install generate-leads validate test test-unit clean-data clean
 
 # Set up full environment
 setup: venv install
 
 venv:
-	python -m venv .venv
+	$(PYTHON) -m venv .venv
 
 install:
 	$(PIP) install --upgrade pip
