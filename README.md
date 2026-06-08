@@ -126,6 +126,38 @@
 
 ---
 
+## Preprocessing & Train/Val/Test Strategy (Sections 8 & 9) — `src/preprocessing/`
+
+| Category | Metric | Actual | Threshold / Target | Pass |
+|---|---|---|---|---|
+| **Pipeline** | Input features (ALL_FEATURES) | 57 | 57 | ✓ |
+| **Pipeline** | Transform groups partition ALL_FEATURES | 57 / 57, no overlap | exact partition | ✓ |
+| **Pipeline** | `log1p → StandardScaler` columns | 4 | 4 | ✓ |
+| **Pipeline** | `StandardScaler` columns | 37 | 37 | ✓ |
+| **Pipeline** | Passthrough (ordinal + binary) columns | 11 | 11 | ✓ |
+| **Pipeline** | `OneHotEncoder` columns (nominal `_enc`) | 5 → 24 expanded | `handle_unknown="ignore"` | ✓ |
+| **Pipeline** | Output dimensions after transform | 76 | 52 + 24 | ✓ |
+| **Pipeline** | Null cells after transform | 0 | 0 | ✓ |
+| **Fitting Rule** | Preprocessor fit on train split only | True | train-only | ✓ |
+| **Fitting Rule** | val/test transformed with frozen train statistics | True | True | ✓ |
+| **Artifacts** | `preprocessor.pkl` saved & round-trips | True | True | ✓ |
+| **Split Strategy** | Method | Lead-level 70/15/15 | lead-level | ✓ |
+| **Split Strategy** | Train / val / test unique leads | 7,000 / 1,500 / 1,500 | 70 / 15 / 15 % | ✓ |
+| **Split Strategy** | Train / val / test rows | 252,000 / 54,000 / 54,000 | — | ✓ |
+| **Split Strategy** | Lead-level overlap across splits | 0 | 0 | ✓ |
+| **Cross-Validation** | `GroupKFold` folds | 5 | 5 | ✓ |
+| **Cross-Validation** | Lead overlap between CV train/val folds | 0 | 0 | ✓ |
+| **Cross-Validation** | Each row appears as CV-validation exactly once | True | True | ✓ |
+| **Class Imbalance** | Train conversion rate | 10.56 % | [10 %, 22 %] | ✓ |
+| **Class Imbalance** | `scale_pos_weight` (train) | 8.47 | ~5–8× (typical) | ✓ |
+| **Class Imbalance** | Strategy | `scale_pos_weight`, no SMOTE | per CLAUDE.md §9 | ✓ |
+| **Tests** | Unit tests (`test_pipeline_builder`) | 16 / 16 | 16 / 16 | ✓ |
+| **Tests** | Unit tests (`test_splitting`) | 12 / 12 | 12 / 12 | ✓ |
+| **Tests** | Integration tests (`test_preprocessing_pipeline`) | 11 / 11 | 11 / 11 | ✓ |
+| **Tests** | Combined suite (all phases) | 299 / 299 | 299 / 299 | ✓ |
+
+---
+
 ## Application Generation (Section 4.3) — `data/processed/applications_raw.parquet`
 
 | Category | Metric | Actual | Threshold / Target | Pass |
