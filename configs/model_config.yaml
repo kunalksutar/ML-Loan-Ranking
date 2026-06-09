@@ -26,6 +26,9 @@ ranking:
 
 mlflow:
   experiment_name: lead_bank_ranking
+  # Production model name in the MLflow Model Registry.
+  # Each training run registers a new version under this name.
+  registry_model_name: lead_bank_xgb_ranker
   # `tracking_uri` is the BASE directory; _setup_mlflow() derives:
   #   DB       -> experiments/mlflow/mlflow.db       (SQLite tracking store)
   #   artifacts-> experiments/mlflow/artifacts/      (logged files + XGB model)

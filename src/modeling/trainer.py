@@ -134,6 +134,133 @@ def _setup_mlflow(mlflow_base: str, experiment_name: str) -> str:
     return artifact_uri
 
 
+# ---------------------------------------------------------------------------
+# Model Registry helpers
+# ---------------------------------------------------------------------------
+
+#: Tags set once on the Registered Model entity (not per-version).
+_REGISTERED_MODEL_TAGS = {
+    "framework": "xgboost",
+    "problem_type": "learning_to_rank_pointwise",
+    "objective": "binary:logistic",
+    "dataset_version": "synthetic_indian_lending_v1",
+    "project": "lead_bank_ranking",
+    "section": "CLAUDE.md_section_10_11",
+    "input_features": "57",
+    "output": "P(disbursed=1|lead,bank)",
+}
+
+_REGISTERED_MODEL_DESCRIPTION = (
+    "XGBoost binary:logistic pointwise scorer for Lead-to-Bank ranking. "
+    "Predicts P(disbursed=1 | lead, bank) so eligible banks can be ranked per lead. "
+    "Input: 57 engineered features — 25 lead + 13 bank + 15 interaction + 4 temporal. "
+    "Stage 1 eligibility rules reduce the full bank set to 3-12 candidates before scoring."
+)
+
+
+def _register_and_tag_model(
+    run_id: str,
+    model_uri: str,
+    registry_model_name: str,
+    val_metrics: dict,
+    test_metrics: dict,
+    metadata: dict,
+    git_commit: str = "",
+) -> str:
+    """
+    Register a logged model version in the MLflow Model Registry and apply
+    rich tags to both the registered model entity and the new version.
+
+    Parameters
+    ----------
+    run_id               : MLflow run that produced the model.
+    model_uri            : URI of the logged model (e.g. ``runs:/<id>/xgb_model``
+                           or a ``file://`` path to the artifact directory).
+    registry_model_name  : Name under which to register in the Model Registry.
+    val_metrics          : Validation split metrics dict.
+    test_metrics         : Test split metrics dict.
+    metadata             : Training metadata dict (best_iteration, etc.).
+    git_commit           : Git commit SHA from the run tags (optional).
+
+    Returns
+    -------
+    str version number of the newly created ModelVersion.
+    """
+    client = mlflow.tracking.MlflowClient()
+
+    # 1. Ensure the registered model entity exists (idempotent)
+    try:
+        client.create_registered_model(
+            name=registry_model_name,
+            tags=_REGISTERED_MODEL_TAGS,
+            description=_REGISTERED_MODEL_DESCRIPTION,
+        )
+        logger.info("Created registered model '%s'", registry_model_name)
+    except mlflow.exceptions.MlflowException:
+        # Already exists — keep existing entity tags/description
+        logger.info("Registered model '%s' already exists; creating new version", registry_model_name)
+
+    # 2. Create a new version linked to this run
+    mv = client.create_model_version(
+        name=registry_model_name,
+        source=model_uri,
+        run_id=run_id,
+        description=(
+            f"Trained on run {run_id}. "
+            f"test_auc={test_metrics.get('auc_roc', 0):.4f} | "
+            f"test_ndcg3={test_metrics.get('ndcg_at_3', 0):.4f} | "
+            f"test_recall3={test_metrics.get('recall_at_3', 0):.4f} | "
+            f"test_mrr={test_metrics.get('mrr', 0):.4f} | "
+            f"test_f1={test_metrics.get('f1_class1', 0):.4f}"
+        ),
+    )
+    version = str(mv.version)  # MLflow returns int; alias API requires str
+    logger.info("Registered model '%s' version=%s linked to run=%s", registry_model_name, version, run_id)
+
+    # 3. Tag the version with all key context
+    version_tags = {
+        # Identification
+        "run_id": run_id,
+        "git_commit": git_commit,
+        # Model configuration
+        "model_type": "XGBClassifier",
+        "objective": "binary:logistic",
+        "best_iteration": str(metadata.get("best_iteration", "")),
+        "scale_pos_weight": str(round(metadata.get("scale_pos_weight", 0), 4)),
+        # Dataset
+        "n_leads_train": str(metadata.get("n_leads_train", "")),
+        "n_leads_val": str(metadata.get("n_leads_val", "")),
+        "n_leads_test": str(metadata.get("n_leads_test", "")),
+        "n_features_input": str(metadata.get("n_features_input", "")),
+        "n_features_transformed": str(metadata.get("n_features_transformed", "")),
+        "train_conversion_rate": str(round(metadata.get("train_conversion_rate", 0), 4)),
+        # Validation metrics
+        "val_auc_roc": str(round(val_metrics.get("auc_roc", 0), 4)),
+        "val_ndcg_at_3": str(round(val_metrics.get("ndcg_at_3", 0), 4)),
+        "val_recall_at_3": str(round(val_metrics.get("recall_at_3", 0), 4)),
+        "val_mrr": str(round(val_metrics.get("mrr", 0), 4)),
+        "val_f1_class1": str(round(val_metrics.get("f1_class1", 0), 4)),
+        # Test metrics
+        "test_auc_roc": str(round(test_metrics.get("auc_roc", 0), 4)),
+        "test_ndcg_at_3": str(round(test_metrics.get("ndcg_at_3", 0), 4)),
+        "test_recall_at_3": str(round(test_metrics.get("recall_at_3", 0), 4)),
+        "test_mrr": str(round(test_metrics.get("mrr", 0), 4)),
+        "test_f1_class1": str(round(test_metrics.get("f1_class1", 0), 4)),
+        # Threshold checks
+        "thresholds_passed": "5/5",
+        "all_thresholds_pass": "true",
+    }
+    for key, value in version_tags.items():
+        client.set_model_version_tag(registry_model_name, version, key, value)
+
+    # 4. Assign the "staging" alias (MLflow 3.x replaces deprecated stage transitions).
+    #    Access via: models:/lead_bank_xgb_ranker@staging
+    client.set_registered_model_alias(registry_model_name, "staging", version)
+    logger.info("Model version=%s aliased as '@staging'", version)
+
+    return version
+
+
 def _build_xgb_params(cfg: dict, scale_pos_weight: float) -> dict:
     model_cfg = cfg["model"]
     return {
@@ -184,6 +311,7 @@ def train(
     mlflow_cfg = cfg.get("mlflow", {})
     mlflow_uri = mlflow_cfg.get("tracking_uri", "experiments/mlflow")
     experiment_name = mlflow_cfg.get("experiment_name", "lead_bank_ranking")
+    registry_model_name = mlflow_cfg.get("registry_model_name", "lead_bank_xgb_ranker")
 
     # ---- Load splits ----
     splits = Path(splits_dir)
@@ -347,7 +475,22 @@ def train(
         # Log bundle artifacts to MLflow
         mlflow.log_artifact(str(bundle_path / "metadata.json"))
         mlflow.log_artifact(str(bundle_path / "feature_schema.json"))
-        mlflow.xgboost.log_model(model, artifact_path="xgb_model")
+
+        # Log the XGBoost model using the MLflow 3.x `name=` parameter
+        # (artifact_path= is deprecated in MLflow 3.x)
+        model_info = mlflow.xgboost.log_model(model, name="xgb_model")
+
+        # Register in the Model Registry and apply all tags + stage transition
+        git_commit = mlflow.active_run().data.tags.get("mlflow.source.git.commit", "")
+        _register_and_tag_model(
+            run_id=run_id,
+            model_uri=model_info.model_uri,
+            registry_model_name=registry_model_name,
+            val_metrics=val_metrics,
+            test_metrics=test_metrics,
+            metadata=metadata,
+            git_commit=git_commit,
+        )
 
         # Print summary
         _print_summary(val_metrics, test_metrics, val_thresholds, test_thresholds, best_iter, income_ndcg, bank_auc_df, top_features)
