@@ -158,6 +158,105 @@
 
 ---
 
+## Model Training & Ranking Pipeline (Sections 10 & 11)
+
+### Stage 1 — Eligibility Engine (`src/eligibility/rule_engine.py`)
+
+| Category | Detail | Value |
+|---|---|---|
+| **Implementation** | Rules implemented (ordered) | 12 / 12 |
+| **Implementation** | Vectorised numpy batching | Yes |
+| **Implementation** | `rejection_attributor.py` | Added |
+| **Top rejection** | `cibil_below_minimum` | 39.5 % of all pairs |
+| **Top rejection** | `state_not_covered` | 23.3 % of all pairs |
+| **Tests** | `test_eligibility_engine.py` | 25 / 25 PASS |
+
+### Stage 2 — XGBoost Pointwise Scorer (`src/modeling/trainer.py`)
+
+| Category | Metric | Value |
+|---|---|---|
+| **Dataset** | Train rows (70 % of leads) | 252,000 |
+| **Dataset** | Val rows (15 % of leads) | 54,000 |
+| **Dataset** | Test rows (15 % of leads) | 54,000 |
+| **Dataset** | Input features | 57 |
+| **Dataset** | Transformed dimensions | 76 |
+| **Dataset** | `scale_pos_weight` | 8.47 |
+| **Training** | Best XGBoost iteration | 374 / 400 |
+| **Training** | Objective | `binary:logistic` |
+| **Training** | `tree_method` | `hist` |
+| **Training** | Early stopping rounds | 50 |
+| **Artifacts** | `models/v1/xgb_model.ubj` | Saved |
+| **Artifacts** | `models/v1/preprocessor.pkl` | Saved |
+| **Artifacts** | `models/v1/metadata.json` | Saved |
+| **Artifacts** | `models/v1/feature_schema.json` | Saved |
+| **Artifacts** | `models/v1/eligibility_rules.json` | 36 banks |
+| **MLflow** | Tracking URI | `sqlite:///experiments/mlflow/mlflow.db` |
+| **MLflow** | Experiment | `lead_bank_ranking` |
+
+### Section 11 — Evaluation Metrics
+
+#### Validation Split
+
+| Metric | Value | Threshold | Pass |
+|---|---|---|---|
+| AUC-ROC | **0.9893** | ≥ 0.82 | PASS |
+| NDCG@1 | **0.8818** | — | — |
+| NDCG@3 | **0.8950** | ≥ 0.70 | PASS |
+| NDCG@5 | **0.9037** | — | — |
+| Recall@1 | **0.8818** | — | — |
+| Recall@3 | **0.9953** | ≥ 0.75 | PASS |
+| Recall@5 | **1.0000** | — | — |
+| MRR | **0.9370** | ≥ 0.60 | PASS |
+| F1 (class 1) | **0.8918** | ≥ 0.65 | PASS |
+| Precision (class 1) | **0.8047** | — | — |
+| Recall (class 1) | **1.0000** | — | — |
+
+#### Test Split (primary)
+
+| Metric | Value | Threshold | Pass |
+|---|---|---|---|
+| AUC-ROC | **0.9900** | ≥ 0.82 | PASS |
+| NDCG@1 | **0.8584** | — | — |
+| NDCG@3 | **0.8802** | ≥ 0.70 | PASS |
+| NDCG@5 | **0.8953** | — | — |
+| Recall@1 | **0.8584** | — | — |
+| Recall@3 | **0.9927** | ≥ 0.75 | PASS |
+| Recall@5 | **1.0000** | — | — |
+| MRR | **0.9234** | ≥ 0.60 | PASS |
+| F1 (class 1) | **0.8900** | ≥ 0.65 | PASS |
+| Precision (class 1) | **0.8022** | — | — |
+| Recall (class 1) | **0.9995** | — | — |
+| **All thresholds met** | **5 / 5** | 5 / 5 | **PASS** |
+
+#### Error Analysis Slices (Test)
+
+| Slice | NDCG@3 |
+|---|---|
+| business | 0.5289 |
+| salaried | 0.4878 |
+| freelance | 0.4699 |
+| self_employed | 0.4382 |
+
+> Note: slice NDCG@3 values are computed over leads with at least one converting bank.
+
+| Per-bank AUC | Result |
+|---|---|
+| Banks with AUC ≥ 0.70 | 36 / 36 |
+| Banks flagged (AUC < 0.70) | 0 |
+
+### Stage 3 — Ranker & Tests
+
+| Category | Detail | Value |
+|---|---|---|
+| **Ranker** | `src/modeling/ranker.py` | Implemented |
+| **Ranker** | Default top-k | 5 |
+| **Ranker** | `Ranker.from_bundle("models/v1")` | Supported |
+| **Tests** | `test_ranker.py` | 16 / 16 PASS |
+| **Tests** | `test_eligibility_engine.py` | 25 / 25 PASS |
+| **Tests** | Full suite (all phases) | 340 / 340 PASS |
+
+---
+
 ## Application Generation (Section 4.3) — `data/processed/applications_raw.parquet`
 
 | Category | Metric | Actual | Threshold / Target | Pass |
