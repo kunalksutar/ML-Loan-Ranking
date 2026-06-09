@@ -26,6 +26,10 @@ ranking:
 
 mlflow:
   experiment_name: lead_bank_ranking
+  # `tracking_uri` is the BASE directory; _setup_mlflow() derives:
+  #   DB       -> experiments/mlflow/mlflow.db       (SQLite tracking store)
+  #   artifacts-> experiments/mlflow/artifacts/      (logged files + XGB model)
+  # Both paths stay under experiments/ which is gitignored.
   tracking_uri: experiments/mlflow
 
 # Minimum acceptance thresholds (CLAUDE.md §11)

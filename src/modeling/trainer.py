@@ -65,6 +65,75 @@ def load_model_config(path: str = DEFAULT_CONFIG) -> dict:
         return yaml.safe_load(f)
 
 
+# ---------------------------------------------------------------------------
+# MLflow setup — all files under experiments/mlflow/
+# ---------------------------------------------------------------------------
+
+def _setup_mlflow(mlflow_base: str, experiment_name: str) -> str:
+    """
+    Configure MLflow so that ALL experiment data (DB, artifacts, model registry)
+    lives under `mlflow_base/` — matching the CLAUDE.md §13 layout:
+
+        experiments/mlflow/
+        ├── mlflow.db          <- SQLite tracking store (params, metrics, tags)
+        └── artifacts/         <- artifact store (logged files, xgb model)
+            └── <experiment_id>/
+                └── <run_id>/
+                    └── artifacts/
+
+    MLflow 3.x separates the *tracking URI* (where metadata is stored) from the
+    *artifact location* (where files are stored).  When `set_experiment()` is
+    called without an explicit `artifact_location`, MLflow defaults the artifact
+    root to `file://<cwd>/mlruns/<experiment_id>` — which is why artifacts were
+    appearing in a root-level `mlruns/` directory instead of inside
+    `experiments/mlflow/`.
+
+    This function:
+      1. Creates `experiments/mlflow/artifacts/` on disk.
+      2. Configures the SQLite tracking URI.
+      3. Creates the named experiment with the correct `artifact_location` if it
+         doesn't exist yet.  If it already exists, verifies the stored location
+         matches; if not, deletes the stale experiment and recreates it cleanly.
+
+    Returns the artifact root URI (a `file://` string).
+    """
+    base = Path(mlflow_base).resolve()
+    db_path = base / "mlflow.db"
+    artifact_root = base / "artifacts"
+
+    base.mkdir(parents=True, exist_ok=True)
+    artifact_root.mkdir(parents=True, exist_ok=True)
+
+    db_uri = f"sqlite:///{db_path}"
+    artifact_uri = artifact_root.as_uri()   # file:///...absolute...
+
+    mlflow.set_tracking_uri(db_uri)
+
+    client = mlflow.tracking.MlflowClient()
+    exp = client.get_experiment_by_name(experiment_name)
+
+    if exp is None:
+        client.create_experiment(experiment_name, artifact_location=artifact_uri)
+        logger.info("MLflow experiment '%s' created | artifact_uri=%s", experiment_name, artifact_uri)
+    elif not exp.artifact_location.startswith(str(artifact_root.as_uri())):
+        # Stale experiment pointing at the wrong artifact root — delete and recreate.
+        logger.warning(
+            "MLflow experiment '%s' has stale artifact_location=%s; recreating under %s",
+            experiment_name, exp.artifact_location, artifact_uri,
+        )
+        client.delete_experiment(exp.experiment_id)
+        client.create_experiment(experiment_name, artifact_location=artifact_uri)
+        logger.info("MLflow experiment '%s' recreated | artifact_uri=%s", experiment_name, artifact_uri)
+    else:
+        logger.info(
+            "MLflow experiment '%s' exists | artifact_uri=%s",
+            experiment_name, exp.artifact_location,
+        )
+
+    mlflow.set_experiment(experiment_name)
+    return artifact_uri
+
+
 def _build_xgb_params(cfg: dict, scale_pos_weight: float) -> dict:
     model_cfg = cfg["model"]
     return {
@@ -159,12 +228,7 @@ def train(
     )
 
     # ---- MLflow run ----
-    # MLflow 3.x requires a database backend; use SQLite stored in the mlflow dir
-    mlflow_dir = Path(mlflow_uri)
-    mlflow_dir.mkdir(parents=True, exist_ok=True)
-    db_uri = f"sqlite:///{mlflow_dir.resolve()}/mlflow.db"
-    mlflow.set_tracking_uri(db_uri)
-    mlflow.set_experiment(experiment_name)
+    _setup_mlflow(mlflow_uri, experiment_name)
 
     timestamp = datetime.now(tz=timezone.utc).strftime("%Y%m%d_%H%M%S")
     effective_run_name = run_name or f"xgb_pointwise_{timestamp}"
