@@ -1,0 +1,84 @@
+# Model configuration for the Lead-to-Bank Ranking system (CLAUDE.md §10, §12)
+
+model:
+  objective: binary:logistic
+  eval_metric:
+    - auc
+    - logloss
+  tree_method: hist
+  early_stopping_rounds: 50
+  verbose_eval: 50
+
+  # Default hyperparameters (used when tuning is not run)
+  n_estimators: 400
+  max_depth: 6
+  learning_rate: 0.05
+  min_child_weight: 5
+  subsample: 0.8
+  colsample_bytree: 0.8
+  gamma: 0.1
+  reg_alpha: 0.1
+  reg_lambda: 1.0
+  # scale_pos_weight: derived from training data at runtime (n_neg / n_pos)
+
+ranking:
+  top_k: 5
+
+mlflow:
+  experiment_name: lead_bank_ranking
+  tracking_uri: experiments/mlflow
+
+# Minimum acceptance thresholds (CLAUDE.md §11)
+thresholds:
+  auc_roc: 0.82
+  ndcg_at_3: 0.70
+  recall_at_3: 0.75
+  mrr: 0.60
+  f1_class1: 0.65
+
+tuning:
+  n_trials: 100
+  optimize_metric: val_ndcg_3
+  cv_n_splits: 5
+
+  search_space:
+    max_depth:
+      type: int
+      low: 3
+      high: 8
+    learning_rate:
+      type: float_log
+      low: 0.01
+      high: 0.3
+    n_estimators:
+      type: int
+      low: 100
+      high: 600
+    min_child_weight:
+      type: int
+      low: 1
+      high: 20
+    subsample:
+      type: float
+      low: 0.5
+      high: 1.0
+    colsample_bytree:
+      type: float
+      low: 0.5
+      high: 1.0
+    gamma:
+      type: float
+      low: 0.0
+      high: 2.0
+    reg_alpha:
+      type: float
+      low: 0.0
+      high: 2.0
+    reg_lambda:
+      type: float
+      low: 0.5
+      high: 5.0
+    scale_pos_weight:
+      type: float
+      low: 3.0
+      high: 10.0

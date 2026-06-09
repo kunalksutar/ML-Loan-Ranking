@@ -30,6 +30,7 @@ data/artifacts/*.html
 
 # MLflow artifacts
 experiments/
+mlruns/
 
 # Logs
 logs/
