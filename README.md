@@ -1,3 +1,5 @@
+[![CI](https://github.com/kunalksutar/ML-Loan-Ranking/actions/workflows/ci.yml/badge.svg)](https://github.com/kunalksutar/ML-Loan-Ranking/actions/workflows/ci.yml)
+
 ## MLflow Setup & CLI Reference
 
 ### Directory Layout
