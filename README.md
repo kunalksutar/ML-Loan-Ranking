@@ -1,82 +1,5 @@
 [![CI](https://github.com/kunalksutar/ML-Loan-Ranking/actions/workflows/ci.yml/badge.svg)](https://github.com/kunalksutar/ML-Loan-Ranking/actions/workflows/ci.yml)
 
-## MLflow Setup & CLI Reference
-
-### Directory Layout
-
-All MLflow data lives under `experiments/mlflow/` (gitignored):
-
-```
-experiments/mlflow/
-├── mlflow.db                          # SQLite tracking store — params, metrics, tags
-└── artifacts/
-    └── <run_id>/
-    │   └── artifacts/
-    │       ├── feature_schema.json
-    │       ├── metadata.json
-    │       └── top10_feature_importance.json
-    └── models/
-        └── <model_id>/
-            └── artifacts/             # MLflow-logged XGBoost model (MLmodel, model.ubj, ...)
-```
-
-The `models/v1/` directory at the project root is the **production bundle** (versioned, committed to git).  
-The `experiments/mlflow/` directory is the **experiment tracking store** (local only, gitignored).
-
-### CLI Commands
-
-**Start the MLflow UI**
-```bash
-# Point the UI at the SQLite DB so it resolves both metadata and artifacts
-mlflow ui --backend-store-uri sqlite:///experiments/mlflow/mlflow.db \
-          --default-artifact-root experiments/mlflow/artifacts \
-          --port 5000
-# Then open http://localhost:5000 in a browser
-```
-
-**List all experiments and runs (Python)**
-```python
-import mlflow
-mlflow.set_tracking_uri("sqlite:///experiments/mlflow/mlflow.db")
-client = mlflow.tracking.MlflowClient()
-
-# List experiments
-for exp in client.search_experiments():
-    print(exp.experiment_id, exp.name, exp.artifact_location)
-
-# List runs for the lead_bank_ranking experiment
-exp = client.get_experiment_by_name("lead_bank_ranking")
-runs = client.search_runs(exp.experiment_id, order_by=["metrics.val_ndcg_at_3 DESC"])
-for r in runs:
-    print(r.info.run_id, r.info.run_name, r.data.metrics.get("val_ndcg_at_3"))
-```
-
-**Load an MLflow-logged model for inference**
-```python
-import mlflow.xgboost
-mlflow.set_tracking_uri("sqlite:///experiments/mlflow/mlflow.db")
-
-# Load by run_id (copy from the UI or search_runs above)
-model = mlflow.xgboost.load_model("runs:/<run_id>/xgb_model")
-```
-
-**Serve the production bundle via the project Ranker (recommended)**
-```python
-from src.modeling.ranker import Ranker
-ranker = Ranker.from_bundle("models/v1")   # loads xgb_model.ubj + preprocessor.pkl
-```
-
-**Serve the MLflow-logged model over HTTP (MLflow model serving)**
-```bash
-mlflow models serve \
-  --model-uri "runs:/<run_id>/xgb_model" \
-  --env-manager local \
-  --port 8080
-# POST JSON feature vectors to http://localhost:8080/invocations
-```
-
----
-
 ## Lead Generation (Section 4.1) — `data/raw/leads.parquet`
 
 | Category | Metric | Actual | Threshold / Target | Pass |
@@ -373,3 +296,80 @@ mlflow models serve \
 | **Tests** | Unit tests (approval + application) | 46 / 46 | 46 / 46 | ✓ |
 | **Tests** | Integration test (full pipeline) | 25 / 25 | 25 / 25 | ✓ |
 | **Tests** | Combined suite (all phases) | 169 / 169 | 169 / 169 | ✓ |
+
+## MLflow Setup & CLI Reference
+
+### Directory Layout
+
+All MLflow data lives under `experiments/mlflow/` (gitignored):
+
+```
+experiments/mlflow/
+├── mlflow.db                          # SQLite tracking store — params, metrics, tags
+└── artifacts/
+    └── <run_id>/
+    │   └── artifacts/
+    │       ├── feature_schema.json
+    │       ├── metadata.json
+    │       └── top10_feature_importance.json
+    └── models/
+        └── <model_id>/
+            └── artifacts/             # MLflow-logged XGBoost model (MLmodel, model.ubj, ...)
+```
+
+The `models/v1/` directory at the project root is the **production bundle** (versioned, committed to git).  
+The `experiments/mlflow/` directory is the **experiment tracking store** (local only, gitignored).
+
+### CLI Commands
+
+**Start the MLflow UI**
+```bash
+# Point the UI at the SQLite DB so it resolves both metadata and artifacts
+mlflow ui --backend-store-uri sqlite:///experiments/mlflow/mlflow.db \
+          --default-artifact-root experiments/mlflow/artifacts \
+          --port 5000
+# Then open http://localhost:5000 in a browser
+```
+
+**List all experiments and runs (Python)**
+```python
+import mlflow
+mlflow.set_tracking_uri("sqlite:///experiments/mlflow/mlflow.db")
+client = mlflow.tracking.MlflowClient()
+
+# List experiments
+for exp in client.search_experiments():
+    print(exp.experiment_id, exp.name, exp.artifact_location)
+
+# List runs for the lead_bank_ranking experiment
+exp = client.get_experiment_by_name("lead_bank_ranking")
+runs = client.search_runs(exp.experiment_id, order_by=["metrics.val_ndcg_at_3 DESC"])
+for r in runs:
+    print(r.info.run_id, r.info.run_name, r.data.metrics.get("val_ndcg_at_3"))
+```
+
+**Load an MLflow-logged model for inference**
+```python
+import mlflow.xgboost
+mlflow.set_tracking_uri("sqlite:///experiments/mlflow/mlflow.db")
+
+# Load by run_id (copy from the UI or search_runs above)
+model = mlflow.xgboost.load_model("runs:/<run_id>/xgb_model")
+```
+
+**Serve the production bundle via the project Ranker (recommended)**
+```python
+from src.modeling.ranker import Ranker
+ranker = Ranker.from_bundle("models/v1")   # loads xgb_model.ubj + preprocessor.pkl
+```
+
+**Serve the MLflow-logged model over HTTP (MLflow model serving)**
+```bash
+mlflow models serve \
+  --model-uri "runs:/<run_id>/xgb_model" \
+  --env-manager local \
+  --port 8080
+# POST JSON feature vectors to http://localhost:8080/invocations
+```
+
+---
