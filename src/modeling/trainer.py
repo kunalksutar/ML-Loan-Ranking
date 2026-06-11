@@ -25,6 +25,7 @@ import mlflow
 import mlflow.xgboost
 import numpy as np
 import pandas as pd
+import xgboost as xgb
 import yaml
 from xgboost import XGBClassifier
 
@@ -49,6 +50,38 @@ from src.preprocessing.splitting import (
 logger = logging.getLogger(__name__)
 
 DEFAULT_CONFIG = "configs/model_config.yaml"
+
+# ---------------------------------------------------------------------------
+# Per-iteration MLflow callback — logs train/val metrics each boosting round
+# ---------------------------------------------------------------------------
+
+class _MLflowIterCallback(xgb.callback.TrainingCallback):
+    """Log train and val metrics to the active MLflow run after every iteration.
+
+    XGBoost names eval sets as 'validation_0', 'validation_1', ... in the order
+    they appear in eval_set.  We map position 0 → 'train', position 1 → 'val'
+    so the MLflow UI renders two labelled learning curves per metric.
+
+    Logged metric names:  train_iter_auc, train_iter_logloss,
+                          val_iter_auc,   val_iter_logloss
+    The `step` argument maps to the boosting round, producing X-axis labels in
+    the MLflow metric chart.
+    """
+
+    _PREFIX_MAP = {0: "train", 1: "val"}
+
+    def after_iteration(self, model, epoch: int, evals_log) -> bool:
+        for i, (_, metrics) in enumerate(evals_log.items()):
+            prefix = self._PREFIX_MAP.get(i, f"eval{i}")
+            for metric_name, values in metrics.items():
+                mlflow.log_metric(
+                    f"{prefix}_iter_{metric_name}",
+                    float(values[-1]),
+                    step=epoch,
+                )
+        return False  # do not early-stop from callback
+
+
 DEFAULT_SPLITS_DIR = "data/processed/applications_splits"
 DEFAULT_BANKS_PATH = "data/raw/banks.parquet"
 DEFAULT_MODEL_DIR = "models/v1"
@@ -115,6 +148,10 @@ def _setup_mlflow(mlflow_base: str, experiment_name: str) -> str:
     if exp is None:
         client.create_experiment(experiment_name, artifact_location=artifact_uri)
         logger.info("MLflow experiment '%s' created | artifact_uri=%s", experiment_name, artifact_uri)
+    elif getattr(exp, "lifecycle_stage", "active") == "deleted":
+        # Soft-deleted experiment — restore it before reuse so set_experiment() succeeds.
+        client.restore_experiment(exp.experiment_id)
+        logger.info("MLflow experiment '%s' restored from deleted state", experiment_name)
     elif not exp.artifact_location.startswith(str(artifact_root.as_uri())):
         # Stale experiment pointing at the wrong artifact root — delete and recreate.
         logger.warning(
@@ -349,9 +386,12 @@ def train(
     n_estimators = xgb_params.pop("n_estimators")
     early_stopping = xgb_params.pop("early_stopping_rounds")
 
+    # Callback is passed via constructor — XGBoost's sklearn fit() does not
+    # accept a `callbacks` kwarg; the constructor does.
     model = XGBClassifier(
         n_estimators=n_estimators,
         early_stopping_rounds=early_stopping,
+        callbacks=[_MLflowIterCallback()],
         **xgb_params,
     )
 
@@ -381,10 +421,12 @@ def train(
         mlflow.log_params(log_params)
 
         # ---- Train ----
+        # eval_set order: [train, val] so callback maps position 0→train, 1→val.
+        # Early stopping still monitors the last entry (val).
         model.fit(
             X_train, y_train,
-            eval_set=[(X_val, y_val)],
-            verbose=cfg["model"].get("verbose_eval", 50),
+            eval_set=[(X_train, y_train), (X_val, y_val)],
+            verbose=False,
         )
 
         best_iter = int(model.best_iteration) if hasattr(model, "best_iteration") else n_estimators
