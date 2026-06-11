@@ -1,8 +1,8 @@
 {
   "version": "v1",
-  "run_id": "833c79d21f154414b9a7ca41722590a7",
-  "run_name": "xgb_pointwise_20260609_135700",
-  "training_date": "20260609_135700",
+  "run_id": "1399402c5e034f109b3e683382ed742d",
+  "run_name": "xgb_pointwise_20260611_115259",
+  "training_date": "20260611_115259",
   "model_type": "XGBClassifier",
   "objective": "binary:logistic",
   "best_iteration": 374,
@@ -58,7 +58,7 @@
     "f31": 0.000535,
     "f53": 0.000458
   },
-  "saved_at": "2026-06-09T13:57:12.300126+00:00",
+  "saved_at": "2026-06-11T11:53:34.819052+00:00",
   "model_file": "xgb_model.ubj",
   "preprocessor_file": "preprocessor.pkl"
 }
