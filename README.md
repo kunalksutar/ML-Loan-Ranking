@@ -373,3 +373,97 @@ mlflow models serve \
 ```
 
 ---
+
+## §12 — Hyperparameter Tuning (Optuna)
+
+**Framework**: Optuna 3.x · **Objective**: maximise NDCG@3 on `val.parquet`  
+**Trials run**: 25 (fast mode — single val-split objective, ~12 s/trial)  
+**Sampler**: `TPESampler(seed=42)` · **Tracking**: nested MLflow runs under a parent study run
+
+### Best Trial (#18)
+
+| Hyperparameter | Value |
+|---|---|
+| `max_depth` | 3 |
+| `learning_rate` | 0.1971 |
+| `n_estimators` | 314 |
+| `min_child_weight` | 8 |
+| `subsample` | 0.686 |
+| `colsample_bytree` | 0.716 |
+| `gamma` | 1.742 |
+| `reg_alpha` | 1.041 |
+| `reg_lambda` | 1.263 |
+| `scale_pos_weight` | 5.827 |
+| **Best val NDCG@3** | **0.8959** |
+
+Saved to `models/v1/best_hyperparams.json` and logged to MLflow as run params.
+
+---
+
+## §13 — Experiment Tracking (MLflow)
+
+### Run Hierarchy
+
+```
+lead_bank_ranking (experiment)
+├── baseline training run           (run_type=training, tuned=false)
+├── xgb_tuning_study_* (parent)    (run_type=tuning_study)
+│   ├── trial_0  …  trial_24       (nested; best = trial #18, NDCG@3 = 0.8959)
+└── xgb_tuned_* (retrain run)       (run_type=training, tuned=true)
+    ├── per-iteration AUC + logloss (train_iter_* / val_iter_* at step=epoch)
+    ├── feature_schema.json, metadata.json, feature_importance.png
+```
+
+### Registered Model Versions
+
+| Version | Alias | Notes |
+|---|---|---|
+| v1 | `@baseline` | Default hyperparams from `model_config.yaml` |
+| v2 | `@staging` | Best Optuna params — production candidate |
+
+### Per-Iteration Metrics
+
+`_MLflowIterCallback` logs `train_iter_auc`, `val_iter_auc`, `train_iter_logloss`, `val_iter_logloss` per boosting round (visible as time-series charts in the MLflow UI).
+
+**Notebook**: [notebooks/03_model_experiments.ipynb](notebooks/03_model_experiments.ipynb) — run comparison, convergence plot, learning curves, HP sensitivity, registry summary.
+
+---
+
+## §14 — Error Analysis
+
+**Notebook**: [notebooks/04_error_analysis.ipynb](notebooks/04_error_analysis.ipynb)
+
+### Tuned Model (v2 @staging) — Test Metrics
+
+| Metric | Value | Threshold | Pass |
+|---|---|---|---|
+| AUC-ROC | **0.9900** | ≥ 0.82 | PASS |
+| NDCG@3 | **0.8836** | ≥ 0.70 | PASS |
+| Recall@3 | **0.9951** | ≥ 0.75 | PASS |
+| MRR | **0.9314** | ≥ 0.60 | PASS |
+| F1 (class 1) | **0.8896** | ≥ 0.65 | PASS |
+
+### Key Findings
+
+1. **False Negatives**: lower `cibil_gap`, higher `enquiry_count_6m`, `bureau_fatigue_flag=1` — borderline eligibility cases the model ranks conservatively.
+2. **False Positives**: concentrate on fintech/NBFC banks where high `approval_base_rate` scores positively but `documentation_strictness` causes disbursal failure.
+3. **Per-bank AUC**: All 36 banks ≥ 0.70 — no bank-level flagging required.
+4. **Top-10 features**: includes `cibil_gap`, `foir_headroom`, `bureau_fatigue_flag`, `income_type_match`, `amount_fit_flag` (§14 requirement met).
+
+### Actionable Recommendations
+
+| Priority | Recommendation |
+|---|---|
+| High | Add `cibil_percentile_within_bank` to capture relative CIBIL fit |
+| High | Add `disbursal_success_rate × approval_base_rate` composite feature |
+| Medium | Platt-scale model outputs on val set (§18 Phase 2) |
+| Low | LightGBM LambdaMART when 10K+ real feedback labels accumulate |
+
+### Tests
+
+| Suite | Result |
+|---|---|
+| `test_tuner.py` (§12 + §14 helpers) | **22 / 22 PASS** |
+| Full suite | **362 / 362 PASS** |
+
+---

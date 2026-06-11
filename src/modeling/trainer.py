@@ -21,6 +21,7 @@ import logging
 from datetime import datetime, timezone
 from pathlib import Path
 
+import matplotlib
 import mlflow
 import mlflow.xgboost
 import numpy as np
@@ -28,6 +29,9 @@ import pandas as pd
 import xgboost as xgb
 import yaml
 from xgboost import XGBClassifier
+
+matplotlib.use("Agg")  # non-interactive backend — safe in all environments
+import matplotlib.pyplot as plt
 
 from src.features.feature_registry import ALL_FEATURES, GROUP_KEY, TARGET
 from src.modeling.evaluator import check_thresholds, evaluate_all, per_bank_auc, per_income_type_ndcg
@@ -480,6 +484,12 @@ def train(
         top_features = {str(feature_names[i]): round(float(fi[i]), 6) for i in top10_idx}
         mlflow.log_dict(top_features, "top10_feature_importance.json")
 
+        # Feature importance bar chart (§13 artifact requirement)
+        _fi_plot_path = Path(model_dir) / "feature_importance.png"
+        Path(model_dir).mkdir(parents=True, exist_ok=True)
+        _save_feature_importance_plot(top_features, str(_fi_plot_path))
+        mlflow.log_artifact(str(_fi_plot_path), artifact_path="plots")
+
         # ---- Build & save model bundle ----
         feature_schema = build_feature_schema(train_df, ALL_FEATURES)
         eligibility_rules = build_eligibility_rules(banks_df)
@@ -584,6 +594,28 @@ def _print_summary(
     print(f"\n--- Per-Bank AUC (test) ---")
     print(f"  Banks below AUC 0.70 threshold : {n_flagged} / {len(bank_auc_df)}")
     print("=" * 65)
+
+
+def _save_feature_importance_plot(
+    top_features: dict[str, float],
+    output_path: str,
+) -> None:
+    """Save a horizontal bar chart of top-10 feature importances to output_path."""
+    names = list(top_features.keys())
+    values = list(top_features.values())
+
+    fig, ax = plt.subplots(figsize=(10, 6))
+    y_pos = range(len(names))
+    ax.barh(y_pos, values[::-1], color="steelblue", edgecolor="white")
+    ax.set_yticks(list(y_pos))
+    ax.set_yticklabels(names[::-1])
+    ax.set_xlabel("Feature Importance (Gain)")
+    ax.set_title("Top-10 Feature Importances")
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    plt.tight_layout()
+    fig.savefig(output_path, dpi=150)
+    plt.close(fig)
 
 
 def _print_metrics_block(metrics: dict, thresholds: dict) -> None:

@@ -309,3 +309,120 @@ def per_income_type_ndcg(
         rank_metrics = compute_ranking_metrics(grp, score_col=score_col, ks=[k])
         rows.append({"income_type_enc": enc_val, f"ndcg_at_{k}": rank_metrics[f"ndcg_at_{k}"], "n_leads": grp["lead_id"].nunique()})
     return pd.DataFrame(rows).sort_values(f"ndcg_at_{k}")
+
+
+# ---------------------------------------------------------------------------
+# §14 Error Analysis helpers
+# ---------------------------------------------------------------------------
+
+def segment_errors(
+    df: pd.DataFrame,
+    score_col: str = "predicted_score",
+    k: int = 3,
+) -> pd.DataFrame:
+    """
+    Classify each (lead × bank) row into one of four error types based on
+    rank position vs. ground-truth conversion label.
+
+    Banks are ranked within each lead group by score_col descending.
+    Error types assigned:
+      true_positive   converted=1 AND rank <= k  (correct top-K recommendation)
+      false_negative  converted=1 AND rank >  k  (missed disbursed bank — §14 #1)
+      false_positive  converted=0 AND rank <= k  (wasted recommendation slot — §14 #2)
+      true_negative   converted=0 AND rank >  k  (correctly excluded)
+
+    Leads with zero converted=1 rows cannot produce false negatives (no bank
+    ever disbursed) — their rows stay true_negative / false_positive only.
+
+    Returns a copy of df with added 'error_type' column.
+    """
+    out = df.copy()
+
+    # Rank banks within each lead (rank 1 = highest predicted score)
+    out["_rank"] = (
+        out.groupby(GROUP_KEY)[score_col]
+        .rank(method="first", ascending=False)
+        .astype(int)
+    )
+
+    # Leads that have at least one positive example (FN is only meaningful here)
+    leads_with_positive = out.loc[out[TARGET] == 1, GROUP_KEY].unique()
+    has_positive = out[GROUP_KEY].isin(leads_with_positive)
+
+    in_top_k = out["_rank"] <= k
+    positive = out[TARGET] == 1
+
+    # Vectorised assignment (np.select evaluates conditions in order)
+    conditions = [
+        positive & in_top_k,
+        positive & ~in_top_k & has_positive,
+        ~positive & in_top_k,
+    ]
+    choices = ["true_positive", "false_negative", "false_positive"]
+    out["error_type"] = np.select(conditions, choices, default="true_negative")
+
+    out = out.drop(columns=["_rank"])
+    return out
+
+
+def calibration_data(
+    df: pd.DataFrame,
+    score_col: str = "predicted_score",
+    n_bins: int = 10,
+) -> pd.DataFrame:
+    """
+    Compute reliability-diagram data: predicted probability vs. actual positive rate.
+
+    Bins the [0, 1] score range into n_bins equal-width buckets and returns,
+    per occupied bin:
+      bin_lower, bin_upper, bin_center — bucket boundaries and midpoint
+      mean_predicted                   — mean predicted score in the bin
+      actual_positive_rate             — empirical positive rate in the bin
+      count                            — number of samples in the bin
+
+    A well-calibrated model should have mean_predicted ≈ actual_positive_rate
+    (points near the diagonal in a reliability diagram).
+    """
+    scores = df[score_col].to_numpy()
+    labels = df[TARGET].to_numpy()
+
+    edges = np.linspace(0.0, 1.0, n_bins + 1)
+    # digitize returns 1..n_bins; clip to 0-based index
+    bin_idx = np.clip(np.digitize(scores, edges[:-1]) - 1, 0, n_bins - 1)
+
+    rows = []
+    for b in range(n_bins):
+        mask = bin_idx == b
+        if not mask.any():
+            continue
+        rows.append({
+            "bin_lower": float(edges[b]),
+            "bin_upper": float(edges[b + 1]),
+            "bin_center": float((edges[b] + edges[b + 1]) / 2),
+            "mean_predicted": float(scores[mask].mean()),
+            "actual_positive_rate": float(labels[mask].mean()),
+            "count": int(mask.sum()),
+        })
+
+    return pd.DataFrame(rows)
+
+
+def profile_error_segment(
+    df: pd.DataFrame,
+    feature_cols: list[str],
+    group_col: str = "error_type",
+) -> pd.DataFrame:
+    """
+    Summarise mean feature values by error_type (or any group column).
+
+    Only features that are present in df are included; silently skips missing
+    columns so the caller need not filter first.
+
+    Returns a DataFrame indexed by group values, columns = feature means.
+    Useful for answering: "how do false negatives differ from true negatives
+    in terms of cibil_gap, foir_headroom, etc.?"
+    """
+    available = [c for c in feature_cols if c in df.columns]
+    if not available:
+        return pd.DataFrame()
+    return df.groupby(group_col)[available].mean().round(4)
